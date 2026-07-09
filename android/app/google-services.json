@@ -1,0 +1,68 @@
+{
+  "project_info": {
+    "project_number": "388337131142",
+    "project_id": "seyinfo",
+    "storage_bucket": "seyinfo.firebasestorage.app"
+  },
+  "client": [
+    {
+      "client_info": {
+        "mobilesdk_app_id": "1:388337131142:android:a1b4ac52d4277318c4bb07",
+        "android_client_info": {
+          "package_name": "co.median.android.nmpokop"
+        }
+      },
+      "oauth_client": [
+        {
+          "client_id": "388337131142-e9kqfa2054jda9ie0pajhtb25l16u61a.apps.googleusercontent.com",
+          "client_type": 3
+        }
+      ],
+      "api_key": [
+        {
+          "current_key": "AIzaSyCd6RUcOTfvMFqGbhlxTZZ3urc8S-zO0CI"
+        }
+      ],
+      "services": {
+        "appinvite_service": {
+          "other_platform_oauth_client": [
+            {
+              "client_id": "388337131142-e9kqfa2054jda9ie0pajhtb25l16u61a.apps.googleusercontent.com",
+              "client_type": 3
+            }
+          ]
+        }
+      }
+    },
+    {
+      "client_info": {
+        "mobilesdk_app_id": "1:388337131142:android:51f6026b00853b56c4bb07",
+        "android_client_info": {
+          "package_name": "com.example.seychelles_app"
+        }
+      },
+      "oauth_client": [
+        {
+          "client_id": "388337131142-e9kqfa2054jda9ie0pajhtb25l16u61a.apps.googleusercontent.com",
+          "client_type": 3
+        }
+      ],
+      "api_key": [
+        {
+          "current_key": "AIzaSyCd6RUcOTfvMFqGbhlxTZZ3urc8S-zO0CI"
+        }
+      ],
+      "services": {
+        "appinvite_service": {
+          "other_platform_oauth_client": [
+            {
+              "client_id": "388337131142-e9kqfa2054jda9ie0pajhtb25l16u61a.apps.googleusercontent.com",
+              "client_type": 3
+            }
+          ]
+        }
+      }
+    }
+  ],
+  "configuration_version": "1"
+}
