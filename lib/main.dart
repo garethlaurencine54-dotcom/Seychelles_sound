@@ -1,6 +1,10 @@
 import 'package:flutter/material.dart';
 import 'package:firebase_core/firebase_core.dart';
 import 'package:firebase_auth/firebase_auth.dart';
+import 'dart:io';
+import 'package:http/http.dart' as http;
+import 'package:path_provider/path_provider.dart';
+import 'package:just_audio/just_audio.dart';
 import 'screens/library_screen.dart';
 import 'screens/upload_screen.dart';
 
@@ -72,9 +76,25 @@ class _MainNavigationWrapperState extends State<MainNavigationWrapper> {
     }
   }
 
+  Future<void> downloadAndPlay(String filename) async {
+    final url = Uri.parse('http://139.59.22.245:8080/download/$filename');
+    try {
+      final response = await http.get(url);
+      if (response.statusCode == 200) {
+        final directory = await getApplicationSupportDirectory();
+        final file = File('${directory.path}/$filename');
+        await file.writeAsBytes(response.bodyBytes);
+        final player = AudioPlayer();
+        await player.setFilePath(file.path);
+        player.play();
+      }
+    } catch (e) {
+      print('Download/Play Error: $e');
+    }
+  }
+
   @override
   Widget build(BuildContext context) {
-    // The fix is applied here:
     final List<Widget> screens = [
       LibraryScreen(firebaseIdToken: _liveToken),
       const Center(
