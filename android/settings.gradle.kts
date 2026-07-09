@@ -25,11 +25,18 @@ plugins {
 
 include(":app")
 
-// Force all subprojects/plugins to use compileSdk 36
-gradle.lifecycle.beforeProject {
-    if (this.plugins.hasPlugin("com.android.library")) {
-        extensions.findByType(com.android.build.api.dsl.LibraryExtension::class.java)?.apply {
-            compileSdk = 36
+// Aggressive subproject override strategy
+gradle.settingsEvaluated {
+    val settings = this
+    settings.gradle.rootProject {
+        subprojects {
+            afterEvaluate {
+                if (plugins.hasPlugin("com.android.library")) {
+                    extensions.findByType(com.android.build.api.dsl.LibraryExtension::class.java)?.apply {
+                        compileSdk = 36
+                    }
+                }
+            }
         }
     }
 }
