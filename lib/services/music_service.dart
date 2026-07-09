@@ -58,8 +58,10 @@ class Album {
 }
 
 class MusicService {
-  // Replace with your live DigitalOcean IP or your custom domain!
-  final String backendUrl = "http://YOUR_DIGITALOCEAN_IP:5000";
+  // Your live server. Since gunicorn only listens on localhost internally,
+  // this MUST be the public domain/IP that your nginx reverse-proxy serves
+  // (the same address your website loads at), not "127.0.0.1" or ":8001" directly.
+  final String backendUrl = "https://YOUR-DOMAIN-OR-PUBLIC-IP-HERE";
 
   // Fetches all albums and tracks the user owns using their secure Firebase ID token
   Future<List<Album>> fetchUserLibrary(String firebaseIdToken) async {
