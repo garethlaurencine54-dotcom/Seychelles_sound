@@ -4,7 +4,7 @@ import 'package:http/http.dart' as http;
 import 'package:path_provider/path_provider.dart';
 
 class DownloadService {
-  final String backendUrl = "http://YOUR_DIGITALOCEAN_IP:5000";
+  final String backendUrl = "https://seyinfo.seychellesxstream.com";
 
   // Gets the absolute hidden system path where the app is allowed to store files securely
   Future<String> _getLocalPath() async {
