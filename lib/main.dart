@@ -74,9 +74,12 @@ class _MainNavigationWrapperState extends State<MainNavigationWrapper> {
 
   @override
   Widget build(BuildContext context) {
+    // The fix is applied here:
     final List<Widget> screens = [
-      const LibraryScreen(),
-      const Center(child: Text('Marketplace Grid Coming Soon', style: TextStyle(color: Color(0xFF7AABCC)))),
+      LibraryScreen(firebaseIdToken: _liveToken),
+      const Center(
+          child: Text('Marketplace Grid Coming Soon',
+              style: TextStyle(color: Color(0xFF7AABCC)))),
       UploadScreen(firebaseIdToken: _liveToken),
     ];
 
@@ -97,9 +100,12 @@ class _MainNavigationWrapperState extends State<MainNavigationWrapper> {
         unselectedItemColor: const Color(0xFF7AABCC),
         type: BottomNavigationBarType.fixed,
         items: const [
-          BottomNavigationBarItem(icon: Icon(Icons.library_music_rounded), label: 'Library'),
-          BottomNavigationBarItem(icon: Icon(Icons.storefront_rounded), label: 'Marketplace'),
-          BottomNavigationBarItem(icon: Icon(Icons.mic_external_on_rounded), label: 'Artist Portal'),
+          BottomNavigationBarItem(
+              icon: Icon(Icons.library_music_rounded), label: 'Library'),
+          BottomNavigationBarItem(
+              icon: Icon(Icons.storefront_rounded), label: 'Marketplace'),
+          BottomNavigationBarItem(
+              icon: Icon(Icons.mic_external_on_rounded), label: 'Artist Portal'),
         ],
       ),
     );
