@@ -1,3 +1,4 @@
+import 'package:flutter/foundation.dart';
 import 'dart:convert';
 import 'package:http/http.dart' as http;
 
@@ -76,11 +77,11 @@ class MusicService {
         List<dynamic> libraryData = data['library'] ?? [];
         return libraryData.map((item) => Album.fromJson(item)).toList();
       } else {
-        print("Server error pulling library: ${response.body}");
+        debugPrint("Server error pulling library: ${response.body}");
         return [];
       }
     } catch (e) {
-      print("Network error connecting to library API: $e");
+      debugPrint("Network error connecting to library API: $e");
       return [];
     }
   }

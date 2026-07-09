@@ -1,3 +1,4 @@
+import 'package:flutter/foundation.dart';
 import 'dart:io';
 import 'package:http/http.dart' as http;
 import 'package:path_provider/path_provider.dart';
@@ -45,11 +46,11 @@ class DownloadService {
         await file.writeAsBytes(response.bodyBytes);
         return true;
       } else {
-        print("Failed to download track file: ${response.statusCode}");
+        debugPrint("Failed to download track file: ${response.statusCode}");
         return false;
       }
     } catch (e) {
-      print("Error downloading track: $e");
+      debugPrint("Error downloading track: $e");
       return false;
     }
   }

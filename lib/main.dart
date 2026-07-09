@@ -89,7 +89,7 @@ class _MainNavigationWrapperState extends State<MainNavigationWrapper> {
         player.play();
       }
     } catch (e) {
-      print('Download/Play Error: $e');
+      debugPrint('Download/Play Error: $e');
     }
   }
 

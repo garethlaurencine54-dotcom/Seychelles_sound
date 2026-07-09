@@ -65,7 +65,7 @@ class _PlayerScreenState extends State<PlayerScreen> {
         }
       });
     } catch (e) {
-      print("Error loading audio source: $e");
+      debugPrint("Error loading audio source: $e");
     }
   }
 
