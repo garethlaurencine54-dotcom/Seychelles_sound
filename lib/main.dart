@@ -1,16 +1,17 @@
 import 'package:flutter/material.dart';
 import 'package:firebase_core/firebase_core.dart';
 import 'package:firebase_auth/firebase_auth.dart';
-import 'dart:io';
-import 'package:http/http.dart' as http;
-import 'package:path_provider/path_provider.dart';
-import 'package:just_audio/just_audio.dart';
 import 'screens/library_screen.dart';
 import 'screens/upload_screen.dart';
+import 'screens/sign_in_screen.dart';
 
 void main() async {
   WidgetsFlutterBinding.ensureInitialized();
-  await Firebase.initializeApp();
+  try {
+    await Firebase.initializeApp();
+  } catch (e) {
+    debugPrint('Firebase init failed: $e');
+  }
   runApp(const SeychellesSoundApp());
 }
 
@@ -32,7 +33,25 @@ class SeychellesSoundApp extends StatelessWidget {
         ),
         fontFamily: 'Inter',
       ),
-      home: const MainNavigationWrapper(),
+      // Watches Firebase's auth state directly. Signed out â†’ SignInScreen.
+      // Signed in â†’ straight to the library. No manual token-passing needed.
+      home: StreamBuilder<User?>(
+        stream: FirebaseAuth.instance.authStateChanges(),
+        builder: (context, snapshot) {
+          if (snapshot.connectionState == ConnectionState.waiting) {
+            return const Scaffold(
+              backgroundColor: Color(0xFF060F1A),
+              body: Center(
+                child: CircularProgressIndicator(color: Color(0xFF44C8C0)),
+              ),
+            );
+          }
+          if (snapshot.hasData) {
+            return const MainNavigationWrapper();
+          }
+          return const SignInScreen();
+        },
+      ),
     );
   }
 }
@@ -76,23 +95,6 @@ class _MainNavigationWrapperState extends State<MainNavigationWrapper> {
     }
   }
 
-  Future<void> downloadAndPlay(String filename) async {
-    final url = Uri.parse('http://139.59.22.245:8080/download/$filename');
-    try {
-      final response = await http.get(url);
-      if (response.statusCode == 200) {
-        final directory = await getApplicationSupportDirectory();
-        final file = File('${directory.path}/$filename');
-        await file.writeAsBytes(response.bodyBytes);
-        final player = AudioPlayer();
-        await player.setFilePath(file.path);
-        player.play();
-      }
-    } catch (e) {
-      debugPrint('Download/Play Error: $e');
-    }
-  }
-
   @override
   Widget build(BuildContext context) {
     final List<Widget> screens = [
@@ -131,4 +133,3 @@ class _MainNavigationWrapperState extends State<MainNavigationWrapper> {
     );
   }
 }
-
