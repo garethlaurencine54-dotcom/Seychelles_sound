@@ -1,4 +1,6 @@
 import 'package:flutter/material.dart';
+import 'package:firebase_auth/firebase_auth.dart';
+import 'package:google_sign_in/google_sign_in.dart';
 import '../services/music_service.dart';
 import 'player_screen.dart';
 
@@ -30,6 +32,18 @@ class _LibraryScreenState extends State<LibraryScreen> {
         title: const Text('My Library', style: TextStyle(fontWeight: FontWeight.bold)),
         backgroundColor: Colors.grey[900],
         elevation: 0,
+        actions: [
+          IconButton(
+            icon: const Icon(Icons.logout_rounded),
+            tooltip: 'Sign out',
+            onPressed: () async {
+              await GoogleSignIn().signOut();
+              await FirebaseAuth.instance.signOut();
+              // authStateChanges() in main.dart automatically returns
+              // the user to SignInScreen once this completes.
+            },
+          ),
+        ],
       ),
       body: FutureBuilder<List<Album>>(
         future: futureLibrary,
