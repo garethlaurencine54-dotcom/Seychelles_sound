@@ -33,12 +33,3 @@ gradle.lifecycle.beforeProject {
         }
     }
 }
-
-// Force all subprojects/plugins to use compileSdk 36
-gradle.lifecycle.beforeProject {
-    if (this.plugins.hasPlugin("com.android.library")) {
-        extensions.findByType(com.android.build.api.dsl.LibraryExtension::class.java)?.apply {
-            compileSdk = 36
-        }
-    }
-}
