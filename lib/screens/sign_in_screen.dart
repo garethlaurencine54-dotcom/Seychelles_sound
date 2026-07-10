@@ -46,7 +46,7 @@ class _SignInScreenState extends State<SignInScreen> {
       // which automatically swaps this screen for the library.
     } catch (e) {
       setState(() {
-        _errorMessage = 'Sign-in failed. Please try again.';
+        _errorMessage = 'DEBUG ERROR: $e';
         _isSigningIn = false;
       });
       debugPrint('Google Sign-In error: $e');
