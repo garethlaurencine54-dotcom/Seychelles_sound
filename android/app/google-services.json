@@ -43,6 +43,14 @@
       },
       "oauth_client": [
         {
+          "client_id": "388337131142-utj365n9743i6cjr3snng9j46dab01kt.apps.googleusercontent.com",
+          "client_type": 1,
+          "android_info": {
+            "package_name": "com.example.seychelles_app",
+            "certificate_hash": "caf339b2e7b3d15bc30a78915f6fcceee276a985"
+          }
+        },
+        {
           "client_id": "388337131142-e9kqfa2054jda9ie0pajhtb25l16u61a.apps.googleusercontent.com",
           "client_type": 3
         }
