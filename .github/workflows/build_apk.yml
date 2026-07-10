@@ -1,14 +1,18 @@
-name: Build Flutter APK (Release)
+name: Build Flutter APK (Debug)
 
 on:
   push:
-    branches: [ main ]
+    branches:
+      - main
+  workflow_dispatch:
 
 jobs:
   build:
     runs-on: ubuntu-latest
+
     steps:
-      - uses: actions/checkout@v4
+      - name: Checkout Repository
+        uses: actions/checkout@v4
 
       - name: Set up Java
         uses: actions/setup-java@v4
@@ -16,7 +20,8 @@ jobs:
           distribution: 'zulu'
           java-version: '17'
 
-      - uses: subosito/flutter-action@v2
+      - name: Set up Flutter
+        uses: subosito/flutter-action@v2
         with:
           channel: 'stable'
 
@@ -25,10 +30,25 @@ jobs:
           mkdir -p ~/.android
           echo "${{ secrets.DEBUG_KEYSTORE_BASE64 }}" | base64 --decode > ~/.android/debug.keystore
 
-      - run: flutter pub get
-      - run: flutter build apk --release
+      - name: Verify Keystore Fingerprint
+        run: |
+          keytool -list -v -keystore ~/.android/debug.keystore \
+            -alias androiddebugkey -storepass android -keypass android
 
-      - uses: actions/upload-artifact@v4
+      - name: Install Dependencies
+        run: flutter pub get
+
+      - name: Build APK
+        run: flutter build apk --debug
+
+      - name: Run Gradle Signing Report
+        run: |
+          cd android
+          chmod +x gradlew
+          ./gradlew signingReport
+
+      - name: Upload APK Artifact
+        uses: actions/upload-artifact@v4
         with:
-          name: release-apk
-          path: build/app/outputs/flutter-apk/app-release.apk
+          name: seychelles-sound-app
+          path: build/app/outputs/flutter-apk/app-debug.apk
