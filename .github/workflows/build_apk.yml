@@ -25,26 +25,17 @@ jobs:
         with:
           channel: 'stable'
 
-      # Reuses the SAME debug signing key on every build instead of a fresh
-      # random one each time â€” otherwise Google Sign-In's SHA-1 whitelist
-      # in Firebase would break on every new commit.
-      - name: Cache debug keystore
-        uses: actions/cache@v4
-        with:
-          path: ~/.android/debug.keystore
-          key: debug-keystore-v1
+      # Plugs in your fresh, updated Firebase configuration safely
+      - name: Decode Google Services JSON
+        run: echo "${{ secrets.GOOGLE_SERVICES_JSON }}" > android/app/google-services.json
 
-      - name: Ensure debug keystore exists
+      # Decodes the exact permanent keystore file we generated on your server
+      - name: Decode Permanent Keystore
         run: |
           mkdir -p ~/.android
-          if [ ! -f ~/.android/debug.keystore ]; then
-            keytool -genkey -v -keystore ~/.android/debug.keystore \
-              -storepass android -alias androiddebugkey -keypass android \
-              -keyalg RSA -keysize 2048 -validity 10000 \
-              -dname "CN=Android Debug,O=Android,C=US"
-          fi
+          echo "${{ secrets.KEYSTORE_BASE64 }}" | base64 --decode > ~/.android/debug.keystore
 
-      - name: Print SHA-1 fingerprint (copy this into Firebase)
+      - name: Print SHA-1 fingerprint (Verified Permanent Key)
         run: |
           keytool -list -v -keystore ~/.android/debug.keystore \
             -alias androiddebugkey -storepass android -keypass android
