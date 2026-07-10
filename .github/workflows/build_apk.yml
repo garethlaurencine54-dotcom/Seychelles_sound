@@ -25,6 +25,30 @@ jobs:
         with:
           channel: 'stable'
 
+      # Reuses the SAME debug signing key on every build instead of a fresh
+      # random one each time â€” otherwise Google Sign-In's SHA-1 whitelist
+      # in Firebase would break on every new commit.
+      - name: Cache debug keystore
+        uses: actions/cache@v4
+        with:
+          path: ~/.android/debug.keystore
+          key: debug-keystore-v1
+
+      - name: Ensure debug keystore exists
+        run: |
+          mkdir -p ~/.android
+          if [ ! -f ~/.android/debug.keystore ]; then
+            keytool -genkey -v -keystore ~/.android/debug.keystore \
+              -storepass android -alias androiddebugkey -keypass android \
+              -keyalg RSA -keysize 2048 -validity 10000 \
+              -dname "CN=Android Debug,O=Android,C=US"
+          fi
+
+      - name: Print SHA-1 fingerprint (copy this into Firebase)
+        run: |
+          keytool -list -v -keystore ~/.android/debug.keystore \
+            -alias androiddebugkey -storepass android -keypass android
+
       - name: Install Dependencies
         run: flutter pub get
 
@@ -36,4 +60,3 @@ jobs:
         with:
           name: seychelles-sound-app
           path: build/app/outputs/flutter-apk/app-debug.apk
-
