@@ -38,14 +38,14 @@ jobs:
       - name: Install Dependencies
         run: flutter pub get
 
+      - name: Build APK
+        run: flutter build apk --debug
+
       - name: Run Gradle Signing Report
         run: |
           cd android
           chmod +x gradlew
           ./gradlew signingReport
-
-      - name: Build APK
-        run: flutter build apk --debug
 
       - name: Upload APK Artifact
         uses: actions/upload-artifact@v4
