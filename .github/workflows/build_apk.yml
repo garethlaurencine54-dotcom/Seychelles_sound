@@ -25,7 +25,6 @@ jobs:
         with:
           channel: 'stable'
 
-      # Automatically loads the permanent key from GitHub's internal storage
       - name: Load Permanent Keystore Cache
         id: cache-keystore
         uses: actions/cache@v4
@@ -33,7 +32,6 @@ jobs:
           path: ~/.android/debug.keystore
           key: permanent-seychelles-keystore-v1
 
-      # If the key isn't stored yet, it creates it automatically with your exact signatures
       - name: Auto-Generate Keystore If Missing
         if: steps.cache-keystore.outputs.cache-hit != 'true'
         run: |
@@ -43,7 +41,6 @@ jobs:
             -keyalg RSA -keysize 2048 -validity 10000 \
             -dname "CN=Android Debug,O=Android,C=US"
 
-      # This prints out the SHA-1 to confirm it matches yours perfectly
       - name: Verify Keystore Fingerprint
         run: |
           keytool -list -v -keystore ~/.android/debug.keystore \
@@ -51,6 +48,12 @@ jobs:
 
       - name: Install Dependencies
         run: flutter pub get
+
+      - name: Run Gradle Signing Report
+        run: |
+          cd android
+          chmod +x gradlew
+          ./gradlew signingReport
 
       - name: Build APK
         run: flutter build apk --debug
