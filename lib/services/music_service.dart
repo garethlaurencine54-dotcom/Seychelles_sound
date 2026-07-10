@@ -61,7 +61,7 @@ class MusicService {
   // Your live server. Since gunicorn only listens on localhost internally,
   // this MUST be the public domain/IP that your nginx reverse-proxy serves
   // (the same address your website loads at), not "127.0.0.1" or ":8001" directly.
-  final String backendUrl = "https://YOUR-DOMAIN-OR-PUBLIC-IP-HERE";
+  final String backendUrl = "https://seyinfo.seychellesxstream.com";
 
   // Fetches all albums and tracks the user owns using their secure Firebase ID token
   Future<List<Album>> fetchUserLibrary(String firebaseIdToken) async {
