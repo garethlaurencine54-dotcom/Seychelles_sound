@@ -1,7 +1,6 @@
 import 'package:flutter/material.dart';
 import 'package:just_audio/just_audio.dart';
 import '../services/music_service.dart';
-import '../services/download_service.dart';
 
 class PlayerScreen extends StatefulWidget {
   final Album album;
@@ -15,11 +14,10 @@ class PlayerScreen extends StatefulWidget {
 
 class _PlayerScreenState extends State<PlayerScreen> {
   final AudioPlayer _audioPlayer = AudioPlayer();
-  final DownloadService _downloadService = DownloadService();
-  
+  final MusicService _musicService = MusicService();
+
   bool _isPlaying = false;
-  bool _isDownloaded = false;
-  bool _isDownloading = false;
+  bool _isLoadingAudio = true;
   Duration _duration = Duration.zero;
   Duration _position = Duration.zero;
 
@@ -27,70 +25,33 @@ class _PlayerScreenState extends State<PlayerScreen> {
   void initState() {
     super.initState();
     _initAudio();
-    _checkOfflineStatus();
   }
 
-  // Check if this specific track is already saved locally on the device
-  Future<void> _checkOfflineStatus() async {
-    bool downloaded = await _downloadService.isTrackDownloaded(widget.track.filename);
-    if (mounted) {
-      setState(() {
-        _isDownloaded = downloaded;
-      });
-    }
-  }
-
-  // Initialize audio source (uses local sandbox file if downloaded, hits live droplet if not)
+  // Streams the track live from the server every time — nothing is ever
+  // written to the device's storage. Auth is a signed Link session token
+  // sent as a header, verified fresh by the server on every request.
   Future<void> _initAudio() async {
     try {
-      String source = await _downloadService.getPlaybackSource(widget.track.filename);
-      
-      if (source.startsWith('http')) {
-        await _audioPlayer.setUrl(source);
-      } else {
-        await _audioPlayer.setFilePath(source);
-      }
+      final headers = await _musicService.getAuthHeaders();
+      final url = _musicService.getStreamUrl(widget.track.filename);
+
+      await _audioPlayer.setAudioSource(AudioSource.uri(Uri.parse(url), headers: headers));
 
       _audioPlayer.durationStream.listen((d) {
         if (mounted) setState(() => _duration = d ?? Duration.zero);
       });
-
       _audioPlayer.positionStream.listen((p) {
         if (mounted) setState(() => _position = p);
       });
-
       _audioPlayer.playerStateStream.listen((state) {
-        if (mounted) {
-          setState(() => _isPlaying = state.playing);
-        }
+        if (mounted) setState(() => _isPlaying = state.playing);
       });
+
+      if (mounted) setState(() => _isLoadingAudio = false);
+      _audioPlayer.play();
     } catch (e) {
-      debugPrint("Error loading audio source: $e");
-    }
-  }
-
-  // Trigger file download into the hidden sandbox storage
-  Future<void> _startSecureDownload() async {
-    if (_isDownloaded || _isDownloading) return;
-
-    setState(() => _isDownloading = true);
-    
-    // Using a placeholder token string—wire real Firebase ID token here when auth is live
-    bool success = await _downloadService.downloadTrack(widget.track.filename, "YOUR_FIREBASE_TOKEN");
-
-    if (mounted) {
-      setState(() {
-        _isDownloading = false;
-        if (success) {
-          _isDownloaded = true;
-        }
-      });
-      
-      ScaffoldMessenger.of(context).showSnackBar(
-        SnackBar(
-          content: Text(success ? 'Downloaded securely for offline playback!' : 'Download failed.'),
-        ),
-      );
+      debugPrint("Error loading audio stream: $e");
+      if (mounted) setState(() => _isLoadingAudio = false);
     }
   }
 
@@ -110,6 +71,9 @@ class _PlayerScreenState extends State<PlayerScreen> {
 
   @override
   Widget build(BuildContext context) {
+    final safeMax = _duration.inMilliseconds > 0 ? _duration.inMilliseconds.toDouble() : 1.0;
+    final safeValue = _position.inMilliseconds.toDouble().clamp(0.0, safeMax);
+
     return Scaffold(
       backgroundColor: Colors.black,
       appBar: AppBar(
@@ -122,7 +86,6 @@ class _PlayerScreenState extends State<PlayerScreen> {
         child: Column(
           mainAxisAlignment: MainAxisAlignment.center,
           children: [
-            // Album Art
             Container(
               width: 300,
               height: 300,
@@ -130,10 +93,7 @@ class _PlayerScreenState extends State<PlayerScreen> {
                 color: Colors.grey[900],
                 borderRadius: BorderRadius.circular(20),
                 image: widget.album.coverUrl.isNotEmpty
-                    ? DecorationImage(
-                        image: NetworkImage("https://seyinfo.seychellesxstream.com/${widget.album.coverUrl}"),
-                        fit: BoxFit.cover,
-                      )
+                    ? DecorationImage(image: NetworkImage("${_musicService.backendUrl}${widget.album.coverUrl}"), fit: BoxFit.cover)
                     : null,
               ),
               child: widget.album.coverUrl.isEmpty
@@ -141,7 +101,6 @@ class _PlayerScreenState extends State<PlayerScreen> {
                   : null,
             ),
             const SizedBox(height: 32),
-            // Track Info & Download Icon
             Row(
               mainAxisAlignment: MainAxisAlignment.spaceBetween,
               children: [
@@ -149,57 +108,34 @@ class _PlayerScreenState extends State<PlayerScreen> {
                   child: Column(
                     crossAxisAlignment: CrossAxisAlignment.start,
                     children: [
-                      Text(
-                        widget.track.title,
-                        style: const TextStyle(fontSize: 22, fontWeight: FontWeight.bold, color: Colors.white),
-                        maxLines: 1,
-                        overflow: TextOverflow.ellipsis,
-                      ),
+                      Text(widget.track.title,
+                          style: const TextStyle(fontSize: 22, fontWeight: FontWeight.bold, color: Colors.white),
+                          maxLines: 1, overflow: TextOverflow.ellipsis),
                       const SizedBox(height: 4),
-                      Text(
-                        widget.album.artistEmail,
-                        style: const TextStyle(fontSize: 16, color: Colors.grey),
-                      ),
+                      Text(widget.album.artistEmail, style: const TextStyle(fontSize: 16, color: Colors.grey)),
                     ],
                   ),
                 ),
-                _isDownloading
-                    ? const SizedBox(
-                        width: 24,
-                        height: 24,
-                        child: CircularProgressIndicator(color: Colors.amber, strokeWidth: 2),
-                      )
-                    : IconButton(
-                        icon: Icon(
-                          _isDownloaded ? Icons.check_circle : Icons.download_for_offline,
-                          color: _isDownloaded ? Colors.green : Colors.amber,
-                          size: 28,
-                        ),
-                        onPressed: _startSecureDownload,
-                      ),
+                if (_isLoadingAudio)
+                  const SizedBox(width: 24, height: 24, child: CircularProgressIndicator(color: Colors.amber, strokeWidth: 2))
+                else
+                  const Icon(Icons.stream_rounded, color: Colors.amber, size: 24),
               ],
             ),
             const SizedBox(height: 24),
-            // Progress Bar Slider
             Slider(
               activeColor: Colors.amber,
               inactiveColor: Colors.grey[800],
               min: 0.0,
-              max: _duration.inMilliseconds.toDouble(),
-              value: _position.inMilliseconds.toDouble().clamp(0.0, _duration.inMilliseconds.toDouble()),
-              onChanged: (value) {
-                _audioPlayer.seek(Duration(milliseconds: value.toInt()));
-              },
+              max: safeMax,
+              value: safeValue,
+              onChanged: (value) => _audioPlayer.seek(Duration(milliseconds: value.toInt())),
             ),
             const SizedBox(height: 32),
-            // Main Controls
             Row(
               mainAxisAlignment: MainAxisAlignment.center,
               children: [
-                IconButton(
-                  icon: const Icon(Icons.skip_previous, size: 36, color: Colors.white),
-                  onPressed: () {},
-                ),
+                IconButton(icon: const Icon(Icons.skip_previous, size: 36, color: Colors.white), onPressed: () {}),
                 const SizedBox(width: 24),
                 CircleAvatar(
                   radius: 36,
@@ -210,10 +146,7 @@ class _PlayerScreenState extends State<PlayerScreen> {
                   ),
                 ),
                 const SizedBox(width: 24),
-                IconButton(
-                  icon: const Icon(Icons.skip_next, size: 36, color: Colors.white),
-                  onPressed: () {},
-                ),
+                IconButton(icon: const Icon(Icons.skip_next, size: 36, color: Colors.white), onPressed: () {}),
               ],
             ),
           ],
@@ -222,4 +155,3 @@ class _PlayerScreenState extends State<PlayerScreen> {
     );
   }
 }
-
