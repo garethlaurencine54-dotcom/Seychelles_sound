@@ -1,7 +1,7 @@
 import 'package:flutter/material.dart';
 import '../services/music_service.dart';
 import '../services/link_auth_service.dart';
-import 'player_screen.dart';
+import 'album_tracks_screen.dart';
 import 'link_login_screen.dart';
 
 class LibraryScreen extends StatefulWidget {
@@ -69,7 +69,7 @@ class _LibraryScreenState extends State<LibraryScreen> {
                 onTap: () {
                   if (album.tracks.isNotEmpty) {
                     Navigator.push(context, MaterialPageRoute(
-                      builder: (context) => PlayerScreen(album: album, track: album.tracks.first),
+                      builder: (context) => AlbumTracksScreen(album: album),
                     ));
                   } else {
                     ScaffoldMessenger.of(context).showSnackBar(
