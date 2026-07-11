@@ -1,4 +1,5 @@
 import 'package:flutter/material.dart';
+import 'package:background_downloader/background_downloader.dart';
 import 'screens/library_screen.dart';
 import 'screens/downloads_screen.dart';
 import 'screens/upload_screen.dart';
@@ -7,6 +8,20 @@ import 'services/link_auth_service.dart';
 
 void main() async {
   WidgetsFlutterBinding.ensureInitialized();
+
+  // Lets background downloads show a small progress notification, and
+  // keeps them running even if the app is minimized or the phone locks.
+  await FileDownloader().configureNotification(
+    running: const TaskNotification('Downloading', '{filename}'),
+    complete: const TaskNotification('Download complete', '{filename}'),
+    progressBar: true,
+  );
+  try {
+    await FileDownloader().permissions.request(PermissionType.notifications);
+  } catch (_) {
+    // Notification permission is a nice-to-have — downloads still work without it.
+  }
+
   runApp(const SeychellesSoundApp());
 }
 
