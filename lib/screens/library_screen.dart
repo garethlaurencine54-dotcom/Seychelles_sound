@@ -1,13 +1,11 @@
 import 'package:flutter/material.dart';
-import 'package:firebase_auth/firebase_auth.dart';
-import 'package:google_sign_in/google_sign_in.dart';
 import '../services/music_service.dart';
+import '../services/link_auth_service.dart';
 import 'player_screen.dart';
+import 'link_login_screen.dart';
 
 class LibraryScreen extends StatefulWidget {
-  final String firebaseIdToken;
-
-  const LibraryScreen({super.key, required this.firebaseIdToken});
+  const LibraryScreen({super.key});
 
   @override
   State<LibraryScreen> createState() => _LibraryScreenState();
@@ -15,13 +13,23 @@ class LibraryScreen extends StatefulWidget {
 
 class _LibraryScreenState extends State<LibraryScreen> {
   final MusicService musicService = MusicService();
+  final LinkAuthService linkAuth = LinkAuthService();
   late Future<List<Album>> futureLibrary;
 
   @override
   void initState() {
     super.initState();
-    // Instantly load the user's secure media library on startup
-    futureLibrary = musicService.fetchUserLibrary(widget.firebaseIdToken);
+    futureLibrary = musicService.fetchUserLibrary();
+  }
+
+  Future<void> _logout() async {
+    await linkAuth.logout();
+    if (mounted) {
+      Navigator.of(context).pushAndRemoveUntil(
+        MaterialPageRoute(builder: (_) => const LinkLoginScreen()),
+        (route) => false,
+      );
+    }
   }
 
   @override
@@ -33,16 +41,7 @@ class _LibraryScreenState extends State<LibraryScreen> {
         backgroundColor: Colors.grey[900],
         elevation: 0,
         actions: [
-          IconButton(
-            icon: const Icon(Icons.logout_rounded),
-            tooltip: 'Sign out',
-            onPressed: () async {
-              await GoogleSignIn().signOut();
-              await FirebaseAuth.instance.signOut();
-              // authStateChanges() in main.dart automatically returns
-              // the user to SignInScreen once this completes.
-            },
-          ),
+          IconButton(icon: const Icon(Icons.logout_rounded), tooltip: 'Sign out', onPressed: _logout),
         ],
       ),
       body: FutureBuilder<List<Album>>(
@@ -52,10 +51,7 @@ class _LibraryScreenState extends State<LibraryScreen> {
             return const Center(child: CircularProgressIndicator(color: Colors.amber));
           } else if (snapshot.hasError || snapshot.data == null || snapshot.data!.isEmpty) {
             return const Center(
-              child: Text(
-                'No music found in your collection.',
-                style: TextStyle(color: Colors.grey, fontSize: 16),
-              ),
+              child: Text('No music found in your collection.', style: TextStyle(color: Colors.grey, fontSize: 16)),
             );
           }
 
@@ -64,24 +60,17 @@ class _LibraryScreenState extends State<LibraryScreen> {
           return GridView.builder(
             padding: const EdgeInsets.all(16),
             gridDelegate: const SliverGridDelegateWithFixedCrossAxisCount(
-              crossAxisCount: 2,
-              crossAxisSpacing: 16,
-              mainAxisSpacing: 16,
-              childAspectRatio: 0.75,
+              crossAxisCount: 2, crossAxisSpacing: 16, mainAxisSpacing: 16, childAspectRatio: 0.75,
             ),
             itemCount: albums.length,
             itemBuilder: (context, index) {
               final album = albums[index];
               return GestureDetector(
                 onTap: () {
-                  // If the album has tracks, instantly load up the player screen for track 1
                   if (album.tracks.isNotEmpty) {
-                    Navigator.push(
-                      context,
-                      MaterialPageRoute(
-                        builder: (context) => PlayerScreen(album: album, track: album.tracks.first),
-                      ),
-                    );
+                    Navigator.push(context, MaterialPageRoute(
+                      builder: (context) => PlayerScreen(album: album, track: album.tracks.first),
+                    ));
                   } else {
                     ScaffoldMessenger.of(context).showSnackBar(
                       const SnackBar(content: Text('This album has no tracks available.')),
@@ -89,10 +78,7 @@ class _LibraryScreenState extends State<LibraryScreen> {
                   }
                 },
                 child: Container(
-                  decoration: BoxDecoration(
-                    color: Colors.grey[900],
-                    borderRadius: BorderRadius.circular(12),
-                  ),
+                  decoration: BoxDecoration(color: Colors.grey[900], borderRadius: BorderRadius.circular(12)),
                   child: Column(
                     crossAxisAlignment: CrossAxisAlignment.start,
                     children: [
@@ -101,10 +87,7 @@ class _LibraryScreenState extends State<LibraryScreen> {
                           decoration: BoxDecoration(
                             borderRadius: const BorderRadius.vertical(top: Radius.circular(12)),
                             image: album.coverUrl.isNotEmpty
-                                ? DecorationImage(
-                                    image: NetworkImage("${musicService.backendUrl}${album.coverUrl}"),
-                                    fit: BoxFit.cover,
-                                  )
+                                ? DecorationImage(image: NetworkImage("${musicService.backendUrl}${album.coverUrl}"), fit: BoxFit.cover)
                                 : null,
                           ),
                           child: album.coverUrl.isEmpty
@@ -114,12 +97,9 @@ class _LibraryScreenState extends State<LibraryScreen> {
                       ),
                       Padding(
                         padding: const EdgeInsets.all(8.0),
-                        child: Text(
-                          album.title,
-                          style: const TextStyle(fontWeight: FontWeight.bold, color: Colors.white),
-                          maxLines: 1,
-                          overflow: TextOverflow.ellipsis,
-                        ),
+                        child: Text(album.title,
+                            style: const TextStyle(fontWeight: FontWeight.bold, color: Colors.white),
+                            maxLines: 1, overflow: TextOverflow.ellipsis),
                       ),
                     ],
                   ),
@@ -132,4 +112,3 @@ class _LibraryScreenState extends State<LibraryScreen> {
     );
   }
 }
-
