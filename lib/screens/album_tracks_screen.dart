@@ -1,6 +1,7 @@
 import 'package:flutter/material.dart';
 import '../services/music_service.dart';
 import '../services/offline_cache_service.dart';
+import '../services/background_download_service.dart';
 import 'player_screen.dart';
 
 class AlbumTracksScreen extends StatefulWidget {
@@ -14,59 +15,83 @@ class AlbumTracksScreen extends StatefulWidget {
 class _AlbumTracksScreenState extends State<AlbumTracksScreen> {
   final MusicService _musicService = MusicService();
   final OfflineCacheService _offlineCache = OfflineCacheService();
+  final BackgroundDownloadService _backgroundDownloads = BackgroundDownloadService();
 
   final Set<String> _downloadedFilenames = {};
-  final Set<String> _downloadingFilenames = {};
+  final Map<String, double> _downloadProgress = {};
+  final Map<String, void Function(double)> _progressCallbacks = {};
+  final Map<String, void Function(bool)> _completionCallbacks = {};
 
   @override
   void initState() {
     super.initState();
-    _checkDownloadedStatus();
+    _checkExistingState();
   }
 
-  Future<void> _checkDownloadedStatus() async {
+  Future<void> _checkExistingState() async {
     for (final track in widget.album.tracks) {
       final isDownloaded = await _offlineCache.isDownloaded(track.filename);
-      if (isDownloaded && mounted) {
-        setState(() => _downloadedFilenames.add(track.filename));
+      if (isDownloaded) {
+        if (mounted) setState(() => _downloadedFilenames.add(track.filename));
+        continue;
+      }
+      // Reconnect to a download already running in the background — e.g.
+      // you started it, left this screen, and just came back.
+      if (_backgroundDownloads.isDownloading(track.filename)) {
+        _attachListeners(track.filename);
+        if (mounted) {
+          setState(() => _downloadProgress[track.filename] = _backgroundDownloads.getProgress(track.filename));
+        }
       }
     }
+  }
+
+  void _attachListeners(String filename) {
+    if (_progressCallbacks.containsKey(filename)) return;
+
+    void onProgress(double progress) {
+      if (mounted) setState(() => _downloadProgress[filename] = progress);
+    }
+
+    void onDone(bool success) {
+      if (mounted) {
+        setState(() {
+          _downloadProgress.remove(filename);
+          if (success) _downloadedFilenames.add(filename);
+        });
+        if (!success) {
+          ScaffoldMessenger.of(context).showSnackBar(
+            const SnackBar(content: Text('Download failed. Check your connection.')),
+          );
+        }
+      }
+      _progressCallbacks.remove(filename);
+      _completionCallbacks.remove(filename);
+    }
+
+    _progressCallbacks[filename] = onProgress;
+    _completionCallbacks[filename] = onDone;
+    _backgroundDownloads.addProgressListener(filename, onProgress);
+    _backgroundDownloads.addCompletionListener(filename, onDone);
   }
 
   Future<void> _downloadTrack(Track track) async {
     if (_downloadedFilenames.contains(track.filename) ||
-        _downloadingFilenames.contains(track.filename)) {
+        _downloadProgress.containsKey(track.filename)) {
       return;
     }
 
-    setState(() => _downloadingFilenames.add(track.filename));
+    setState(() => _downloadProgress[track.filename] = 0.0);
+    _attachListeners(track.filename);
 
-    final bytes = await _musicService.fetchTrackBytes(track.filename);
-
-    if (bytes != null) {
-      await _offlineCache.downloadTrack(
-        filename: track.filename,
-        plainBytes: bytes,
-        title: track.title,
-        trackNumber: track.trackNumber,
-        albumId: widget.album.id,
-        albumTitle: widget.album.title,
-        coverUrl: widget.album.coverUrl,
-      );
-      if (mounted) {
-        setState(() {
-          _downloadingFilenames.remove(track.filename);
-          _downloadedFilenames.add(track.filename);
-        });
-      }
-    } else {
-      if (mounted) {
-        setState(() => _downloadingFilenames.remove(track.filename));
-        ScaffoldMessenger.of(context).showSnackBar(
-          const SnackBar(content: Text('Download failed. Check your connection.')),
-        );
-      }
-    }
+    await _backgroundDownloads.startDownload(
+      filename: track.filename,
+      title: track.title,
+      trackNumber: track.trackNumber,
+      albumId: widget.album.id,
+      albumTitle: widget.album.title,
+      coverUrl: widget.album.coverUrl,
+    );
   }
 
   void _openTrack(int index) {
@@ -80,6 +105,17 @@ class _AlbumTracksScreenState extends State<AlbumTracksScreen> {
         ),
       ),
     );
+  }
+
+  @override
+  void dispose() {
+    for (final entry in _progressCallbacks.entries) {
+      _backgroundDownloads.removeProgressListener(entry.key, entry.value);
+    }
+    for (final entry in _completionCallbacks.entries) {
+      _backgroundDownloads.removeCompletionListener(entry.key, entry.value);
+    }
+    super.dispose();
   }
 
   @override
@@ -118,17 +154,29 @@ class _AlbumTracksScreenState extends State<AlbumTracksScreen> {
               itemBuilder: (context, index) {
                 final track = widget.album.tracks[index];
                 final isDownloaded = _downloadedFilenames.contains(track.filename);
-                final isDownloading = _downloadingFilenames.contains(track.filename);
+                final progress = _downloadProgress[track.filename];
 
                 return ListTile(
                   leading: Text('${track.trackNumber}', style: const TextStyle(color: Colors.grey)),
                   title: Text(track.title, style: const TextStyle(color: Colors.white)),
                   onTap: () => _openTrack(index),
-                  trailing: isDownloading
-                      ? const SizedBox(
-                          width: 20,
-                          height: 20,
-                          child: CircularProgressIndicator(strokeWidth: 2, color: Colors.amber),
+                  trailing: progress != null
+                      ? SizedBox(
+                          width: 36,
+                          height: 36,
+                          child: Stack(
+                            alignment: Alignment.center,
+                            children: [
+                              CircularProgressIndicator(
+                                value: progress > 0 ? progress : null,
+                                strokeWidth: 2,
+                                color: Colors.amber,
+                              ),
+                              if (progress > 0)
+                                Text('${(progress * 100).toInt()}',
+                                    style: const TextStyle(fontSize: 9, color: Colors.amber)),
+                            ],
+                          ),
                         )
                       : IconButton(
                           icon: Icon(
