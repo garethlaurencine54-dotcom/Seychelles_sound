@@ -1,6 +1,7 @@
-import 'package:flutter/foundation.dart';
 import 'dart:convert';
+import 'package:flutter/foundation.dart';
 import 'package:http/http.dart' as http;
+import 'link_auth_service.dart';
 
 class Track {
   final String id;
@@ -9,13 +10,7 @@ class Track {
   final String filename;
   final int durationSecs;
 
-  Track({
-    required this.id,
-    required this.title,
-    required this.trackNumber,
-    required this.filename,
-    required this.durationSecs,
-  });
+  Track({required this.id, required this.title, required this.trackNumber, required this.filename, required this.durationSecs});
 
   factory Track.fromJson(Map<String, dynamic> json) {
     return Track(
@@ -35,18 +30,11 @@ class Album {
   final String artistEmail;
   final List<Track> tracks;
 
-  Album({
-    required this.id,
-    required this.title,
-    required this.coverUrl,
-    required this.artistEmail,
-    required this.tracks,
-  });
+  Album({required this.id, required this.title, required this.coverUrl, required this.artistEmail, required this.tracks});
 
   factory Album.fromJson(Map<String, dynamic> json) {
     var list = json['tracks'] as List? ?? [];
     List<Track> trackList = list.map((i) => Track.fromJson(i)).toList();
-
     return Album(
       id: json['id'].toString(),
       title: json['title'] ?? 'Unknown Album',
@@ -58,22 +46,20 @@ class Album {
 }
 
 class MusicService {
-  // Your live server. Since gunicorn only listens on localhost internally,
-  // this MUST be the public domain/IP that your nginx reverse-proxy serves
-  // (the same address your website loads at), not "127.0.0.1" or ":8001" directly.
   final String backendUrl = "https://seyinfo.seychellesxstream.com";
+  final LinkAuthService _linkAuth = LinkAuthService();
 
-  // Fetches all albums and tracks the user owns using their secure Firebase ID token
-  Future<List<Album>> fetchUserLibrary(String firebaseIdToken) async {
+  /// Fetches everything the signed-in Link ID owns.
+  Future<List<Album>> fetchUserLibrary() async {
     try {
+      final token = await _linkAuth.getSavedToken();
+      if (token == null) return [];
+
       final response = await http.get(
-        Uri.parse("$backendUrl/api/v1/user-library"),
-        headers: {
-          'Authorization': 'Bearer $firebaseIdToken',
-          'Content-Type': 'application/json',
-        },
+        Uri.parse("$backendUrl/api/v1/link/user-library"),
+        headers: {'Authorization': 'Bearer $token', 'Content-Type': 'application/json'},
       );
-      
+
       if (response.statusCode == 200) {
         Map<String, dynamic> data = jsonDecode(response.body);
         List<dynamic> libraryData = data['library'] ?? [];
@@ -88,9 +74,11 @@ class MusicService {
     }
   }
 
-  // Gets the exact stream URL for a track file
-  String getStreamUrl(String filename) {
-    return "$backendUrl/api/v1/download/$filename";
+  /// Streaming URL only — this is never downloaded to disk, only played live.
+  String getStreamUrl(String filename) => "$backendUrl/api/v1/link/stream/$filename";
+
+  Future<Map<String, String>> getAuthHeaders() async {
+    final token = await _linkAuth.getSavedToken();
+    return {'Authorization': 'Bearer ${token ?? ''}'};
   }
 }
-
