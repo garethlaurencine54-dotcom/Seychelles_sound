@@ -3,9 +3,8 @@ import 'package:flutter/material.dart';
 import 'package:just_audio/just_audio.dart';
 import '../services/music_service.dart';
 import '../services/offline_cache_service.dart';
+import '../services/background_download_service.dart';
 
-/// Feeds already-decrypted bytes straight to the player from memory —
-/// no plaintext file is ever written to disk for a downloaded track.
 class _InMemoryAudioSource extends StreamAudioSource {
   final Uint8List bytes;
   _InMemoryAudioSource(this.bytes) : super(tag: 'offline_track');
@@ -44,16 +43,21 @@ class _PlayerScreenState extends State<PlayerScreen> {
   final AudioPlayer _audioPlayer = AudioPlayer();
   final MusicService _musicService = MusicService();
   final OfflineCacheService _offlineCache = OfflineCacheService();
+  final BackgroundDownloadService _backgroundDownloads = BackgroundDownloadService();
 
   late int _currentIndex;
   bool _isPlaying = false;
   bool _isLoadingAudio = true;
   bool _isDownloaded = false;
-  bool _isDownloading = false;
-  Duration _duration = Duration.zero;
-  Duration _position = Duration.zero;
+  double? _downloadProgress;
+
+  void Function(double)? _progressListener;
+  void Function(bool)? _completionListener;
+  String? _listenerAttachedFilename;
 
   Track get _currentTrack => widget.tracks[_currentIndex];
+  Duration _duration = Duration.zero;
+  Duration _position = Duration.zero;
 
   @override
   void initState() {
@@ -77,18 +81,25 @@ class _PlayerScreenState extends State<PlayerScreen> {
   }
 
   Future<void> _loadTrack(int index) async {
+    _detachDownloadListeners();
+
     setState(() {
       _isLoadingAudio = true;
       _duration = Duration.zero;
       _position = Duration.zero;
+      _downloadProgress = null;
     });
 
     final track = widget.tracks[index];
     final isDownloaded = await _offlineCache.isDownloaded(track.filename);
 
+    if (!isDownloaded && _backgroundDownloads.isDownloading(track.filename)) {
+      _attachDownloadListeners(track.filename);
+      setState(() => _downloadProgress = _backgroundDownloads.getProgress(track.filename));
+    }
+
     try {
       if (isDownloaded) {
-        // Decrypted straight into memory — never written back to disk as plaintext.
         final bytes = await _offlineCache.getDecryptedBytes(track.filename);
         await _audioPlayer.setAudioSource(_InMemoryAudioSource(bytes));
       } else {
@@ -110,35 +121,61 @@ class _PlayerScreenState extends State<PlayerScreen> {
     }
   }
 
-  Future<void> _downloadCurrentTrack() async {
-    if (_isDownloaded || _isDownloading) return;
-    setState(() => _isDownloading = true);
+  void _attachDownloadListeners(String filename) {
+    _listenerAttachedFilename = filename;
 
-    final bytes = await _musicService.fetchTrackBytes(_currentTrack.filename);
-    if (bytes != null) {
-      await _offlineCache.downloadTrack(
-        filename: _currentTrack.filename,
-        plainBytes: bytes,
-        title: _currentTrack.title,
-        trackNumber: _currentTrack.trackNumber,
-        albumId: widget.album.id,
-        albumTitle: widget.album.title,
-        coverUrl: widget.album.coverUrl,
-      );
+    void onProgress(double progress) {
+      if (mounted) setState(() => _downloadProgress = progress);
+    }
+
+    void onDone(bool success) {
       if (mounted) {
         setState(() {
-          _isDownloaded = true;
-          _isDownloading = false;
+          _downloadProgress = null;
+          if (success) _isDownloaded = true;
         });
-      }
-    } else {
-      if (mounted) {
-        setState(() => _isDownloading = false);
-        ScaffoldMessenger.of(context).showSnackBar(
-          const SnackBar(content: Text('Download failed. Check your connection.')),
-        );
+        if (!success) {
+          ScaffoldMessenger.of(context).showSnackBar(
+            const SnackBar(content: Text('Download failed. Check your connection.')),
+          );
+        }
       }
     }
+
+    _progressListener = onProgress;
+    _completionListener = onDone;
+    _backgroundDownloads.addProgressListener(filename, onProgress);
+    _backgroundDownloads.addCompletionListener(filename, onDone);
+  }
+
+  void _detachDownloadListeners() {
+    final filename = _listenerAttachedFilename;
+    if (filename == null) return;
+    if (_progressListener != null) {
+      _backgroundDownloads.removeProgressListener(filename, _progressListener!);
+    }
+    if (_completionListener != null) {
+      _backgroundDownloads.removeCompletionListener(filename, _completionListener!);
+    }
+    _progressListener = null;
+    _completionListener = null;
+    _listenerAttachedFilename = null;
+  }
+
+  Future<void> _downloadCurrentTrack() async {
+    if (_isDownloaded || _downloadProgress != null) return;
+
+    setState(() => _downloadProgress = 0.0);
+    _attachDownloadListeners(_currentTrack.filename);
+
+    await _backgroundDownloads.startDownload(
+      filename: _currentTrack.filename,
+      title: _currentTrack.title,
+      trackNumber: _currentTrack.trackNumber,
+      albumId: widget.album.id,
+      albumTitle: widget.album.title,
+      coverUrl: widget.album.coverUrl,
+    );
   }
 
   void _playNext() {
@@ -165,6 +202,7 @@ class _PlayerScreenState extends State<PlayerScreen> {
 
   @override
   void dispose() {
+    _detachDownloadListeners();
     _audioPlayer.dispose();
     super.dispose();
   }
@@ -221,8 +259,26 @@ class _PlayerScreenState extends State<PlayerScreen> {
                     ],
                   ),
                 ),
-                if (_isLoadingAudio || _isDownloading)
+                if (_isLoadingAudio)
                   const SizedBox(width: 24, height: 24, child: CircularProgressIndicator(color: Colors.amber, strokeWidth: 2))
+                else if (_downloadProgress != null)
+                  SizedBox(
+                    width: 36,
+                    height: 36,
+                    child: Stack(
+                      alignment: Alignment.center,
+                      children: [
+                        CircularProgressIndicator(
+                          value: _downloadProgress! > 0 ? _downloadProgress : null,
+                          strokeWidth: 2,
+                          color: Colors.amber,
+                        ),
+                        if (_downloadProgress! > 0)
+                          Text('${(_downloadProgress! * 100).toInt()}',
+                              style: const TextStyle(fontSize: 9, color: Colors.amber)),
+                      ],
+                    ),
+                  )
                 else
                   IconButton(
                     icon: Icon(
