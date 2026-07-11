@@ -1,5 +1,6 @@
 import 'package:flutter/material.dart';
 import 'screens/library_screen.dart';
+import 'screens/downloads_screen.dart';
 import 'screens/upload_screen.dart';
 import 'screens/link_login_screen.dart';
 import 'services/link_auth_service.dart';
@@ -32,8 +33,6 @@ class SeychellesSoundApp extends StatelessWidget {
   }
 }
 
-/// Checks whether a Link session token is already saved on this device.
-/// Found -> straight to the library. Not found -> Link ID login screen.
 class SessionGate extends StatefulWidget {
   const SessionGate({super.key});
 
@@ -88,6 +87,7 @@ class _MainNavigationWrapperState extends State<MainNavigationWrapper> {
   Widget build(BuildContext context) {
     final List<Widget> screens = [
       const LibraryScreen(),
+      const DownloadsScreen(),
       const Center(child: Text('Marketplace Grid Coming Soon', style: TextStyle(color: Color(0xFF7AABCC)))),
       const UploadScreen(),
     ];
@@ -103,6 +103,7 @@ class _MainNavigationWrapperState extends State<MainNavigationWrapper> {
         type: BottomNavigationBarType.fixed,
         items: const [
           BottomNavigationBarItem(icon: Icon(Icons.library_music_rounded), label: 'Library'),
+          BottomNavigationBarItem(icon: Icon(Icons.download_done_rounded), label: 'Downloads'),
           BottomNavigationBarItem(icon: Icon(Icons.storefront_rounded), label: 'Marketplace'),
           BottomNavigationBarItem(icon: Icon(Icons.mic_external_on_rounded), label: 'Artist Portal'),
         ],
